@@ -15,7 +15,7 @@ WiFiServer tcpServer(8080);
 WiFiClient client;
 
 
-int BTN_TIMEOUT = 200; // prevent button signal bouncing
+int BTN_TIMEOUT = 150; // prevent button signal bouncing
 
 
 bool spaceIsClicked = false;
@@ -28,10 +28,16 @@ unsigned long lastSpace = 0;
 unsigned long lastRight = 0;
 unsigned long lastLeft = 0;
 
+unsigned int messageNum = 0;
+String salt = "";
+
 
 
 String sign(String message){
   message += "secret password 1234abcd";
+  message += salt;
+  message += String(messageNum);
+
   int bufferSize = message.length() + 1;
   char charmsg[bufferSize];
   message.toCharArray(charmsg, bufferSize);
@@ -52,18 +58,25 @@ String sign(String message){
 
 
 void transmit(String message, byte recursionNum = 0){
+  messageNum += 1;
   if (client) {
     //Serial.println("Client connected!");
     if (client.connected()) {
       if (client.connected()) {
-        client.print("remote-v0.2\n");
-        client.print(message);
-        client.print("\n");
-        client.print(sign(message));
-        client.print("\n");
+        String transmission = message + "\n";
+        transmission += String(messageNum) + "\n";
+        transmission += sign(message) + "\n";
+        unsigned int len = transmission.length();
+        String sLen = String(len);
+        while (sLen.length() < 10){
+          sLen = "0" + sLen;
+        }
+        client.print("remote-v1.0\n");
+        client.print(sLen);
+        client.print(transmission);
       }
-      unsigned long giveUpTime = millis() + 1000;
-      while (!client.available() and giveUpTime > millis()){
+      unsigned long giveUpTime = millis() + 1500;
+      while (!client.available() and giveUpTime < millis()){
         if (!client.available() and recursionNum < 3){
           transmit(message, recursionNum + 1); // try again
         }
@@ -106,7 +119,11 @@ void loop() {
   if (!client) {client = tcpServer.available();}
   else if (!client.connected()) {client.stop();}
 
-  while (client.available()) {client.read();} // ignore incoming data
+  if (client.available()) {
+    if (client.readStringUntil('\n') == "salt="){
+      salt = client.readStringUntil('\n');
+    }
+  }
 
   int vx = map(analogRead(35), 0, 4095, -100, 100) + 12;
   int vy = map(analogRead(32), 0, 4095, -100, 100) + 12;
