@@ -24,6 +24,7 @@ def sign(message, msgNum):
     return str(sha256_hash.hexdigest())
 
 
+pyautogui.FAILSAFE = False # don't crash when cursor goes in corner
 salt = generate_salt()
 rewindMode = False
 
