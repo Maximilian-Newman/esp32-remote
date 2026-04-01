@@ -28,6 +28,9 @@ unsigned long lastSpace = 0;
 unsigned long lastRight = 0;
 unsigned long lastLeft = 0;
 
+long joyOffsetX = 0;
+long joyOffsetY = 0;
+
 unsigned int messageNum = 0;
 String salt = "";
 
@@ -90,6 +93,20 @@ void transmit(String message, byte recursionNum = 0){
 
 
 
+void recalibrate_joystick() {
+  joyOffsetX = 0;
+  joyOffsetX = 0;
+
+  for (byte i=0; i<200; i++) {
+    joyOffsetX += analogRead(35);
+    joyOffsetY += analogRead(32);
+    delay(1);
+  }
+
+  joyOffsetX /= 200;
+  joyOffsetY /= 200;
+}
+
 
 
 void setup() {
@@ -108,7 +125,8 @@ void setup() {
   WiFi.softAPConfig(apIP, apIP, netMsk);
   WiFi.softAP("Max Remote Control", "passwordRC");
   
-   tcpServer.begin();
+  tcpServer.begin();
+  recalibrate_joystick();
 }
 
 unsigned long nextPing = 0;
@@ -125,11 +143,18 @@ void loop() {
     }
   }
 
-  int vx = map(analogRead(35), 0, 4095, -100, 100) + 12;
-  int vy = map(analogRead(32), 0, 4095, -100, 100) + 12;
+  int vx = (analogRead(35) - joyOffsetX) / 20;
+  int vy = (analogRead(32) - joyOffsetY) / 20;
 
-  if (vx > -15 and vx < 15) {vx = 0;}
-  if (vy > -15 and vy < 15) {vy = 0;}
+  byte safety = 15;
+
+  if (vx > safety) {vx -= safety;}
+  else if (vx < -safety) {vx += safety;}
+  else {vx = 0;}
+
+  if (vy > safety) {vy -= safety;}
+  else if (vy < -safety) {vy += safety;}
+  else {vy = 0;}
 
   if (digitalRead(34) == HIGH) {lastNoSpace = millis();}
   if (digitalRead(34) == LOW) {lastSpace = millis();}
