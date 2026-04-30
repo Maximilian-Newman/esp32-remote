@@ -21,6 +21,8 @@ int BTN_TIMEOUT = 150; // prevent button signal bouncing
 bool spaceIsClicked = false;
 bool rightIsClicked = false;
 bool leftIsClicked = false;
+bool remoteLeftIsClicked = true; // 'left click' from thrust channel on RC
+bool remoteSpaceIsClicked = false; // 'space' from thrust channel on RC
 unsigned long lastNoSpace = 0;
 unsigned long lastNoRight = 0;
 unsigned long lastNoLeft = 0;
@@ -30,6 +32,50 @@ unsigned long lastLeft = 0;
 
 long joyOffsetX = 0;
 long joyOffsetY = 0;
+
+
+bool radioInit = false;
+
+const byte pitchRadioPin = 26;
+const byte rollRadioPin = 25;
+const byte thrustRadioPin = 14;
+const byte yawRadioPin = 12;
+
+int pitchRadioOffset = 0;
+int rollRadioOffset = 0;
+int thrustRadioOffset = 0;
+int yawRadioOffset = 0;
+
+long radio_val_pitch() {return pulseIn(pitchRadioPin, HIGH, 30000) - pitchRadioOffset;}
+long radio_val_roll() {return pulseIn(rollRadioPin, HIGH, 30000) - rollRadioOffset;}
+long radio_val_yaw() {return pulseIn(yawRadioPin, HIGH, 30000) - yawRadioOffset;}
+long radio_val_thrust() {
+  int val = pulseIn(thrustRadioPin, HIGH, 30000);
+  if (val < thrustRadioOffset) {thrustRadioOffset = val;}
+  return val - thrustRadioOffset;
+}
+
+void recenter_radio(){
+  Serial.println("recentering");
+  byte numSamples = 20;
+
+  pitchRadioOffset = 0;
+  for (unsigned int i=0; i<numSamples; i++) {
+    pitchRadioOffset += pulseIn(pitchRadioPin, HIGH, 30000);
+    rollRadioOffset += pulseIn(rollRadioPin, HIGH, 30000);
+    thrustRadioOffset += pulseIn(thrustRadioPin, HIGH, 30000);
+    yawRadioOffset += pulseIn(yawRadioPin, HIGH, 30000);
+    delay(1);
+  }
+  pitchRadioOffset /= numSamples;
+  rollRadioOffset /= numSamples;
+  thrustRadioOffset /= numSamples;
+  yawRadioOffset /= numSamples;
+  delay(500);
+}
+
+
+
 
 unsigned int messageNum = 0;
 String salt = "";
@@ -74,7 +120,7 @@ void transmit(String message, byte recursionNum = 0){
         while (sLen.length() < 10){
           sLen = "0" + sLen;
         }
-        client.print("remote-v1.0\n");
+        client.print("remote-v1.1\n");
         client.print(sLen);
         client.print(transmission);
       }
@@ -118,6 +164,11 @@ void setup() {
   pinMode(35, INPUT);
   pinMode(32, INPUT);
   pinMode(34, INPUT);
+
+  pinMode(pitchRadioPin, INPUT);
+  pinMode(rollRadioPin, INPUT);
+  pinMode(thrustRadioPin, INPUT);
+  pinMode(yawRadioPin, INPUT);
 
   uint8_t mac[6];
   WiFi.macAddress(mac);
@@ -195,12 +246,62 @@ void loop() {
     transmit("left press");
   }
 
-  //Serial.println(analogRead(35));
+
+
+
+  if (radioInit) {
+    vx += radio_val_roll() / 5;
+    vy += radio_val_pitch() / 5;
+
+    if (vx > safety) {vx -= safety;}
+    else if (vx < -safety) {vx += safety;}
+    else {vx = 0;}
+
+    if (vy > safety) {vy -= safety;}
+    else if (vy < -safety) {vy += safety;}
+    else {vy = 0;}
+
+
+    int scroll = radio_val_yaw();
+
+    if (scroll > 150) {
+      transmit("scroll r");
+      delay(80000 / scroll);
+    }
+    else if (scroll < -150) {
+      transmit("scroll l");
+      delay(-80000 / scroll);
+    }
+
+
+    int thrust = radio_val_thrust();
+
+    if (remoteSpaceIsClicked and thrust < 850) {
+      remoteSpaceIsClicked = false;
+      transmit("space release");
+    }
+    else if (!remoteSpaceIsClicked and thrust > 850) {
+      remoteSpaceIsClicked = true;
+      transmit("space press");
+    }
+
+    if (remoteLeftIsClicked and thrust > 150) {
+      remoteLeftIsClicked = false;
+      transmit("left release");
+    }
+    else if (!remoteLeftIsClicked and thrust < 150) {
+      remoteLeftIsClicked = true;
+      transmit("left press");
+    }
+  }
+
+  else if (pulseIn(pitchRadioPin, HIGH, 30000) != 0) {
+    recenter_radio();
+    radioInit = true;
+  }
+
 
   if (vx !=0 or vy != 0){
-    //Serial.print(vx);
-    //Serial.print("\t");
-    //Serial.println(vy);
     transmit("mouse:" + String(vx) + "," + String(vy));
     delay(100);
   }
