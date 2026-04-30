@@ -40,7 +40,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             print("Support for the old protocol was dropped due to vulnerability to replay attacks")
             print()
         
-        elif protocol == "remote-v1.0":
+        elif protocol == "remote-v1.0" or protocol == "remote-v1.1":
             mLength = int(s.recv(10).decode("utf-8"))
             msg = ""
             while len(msg) < mLength:
@@ -79,6 +79,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     vy = pos[1]
                     print("moved mouse x", vx, "y", vy)
 
+                elif instruction == "scroll l":
+                    print("left scroll")
+                elif instruction == "scroll r":
+                    print("right scroll")
+
                 else:
                     print("unknown unstruction:")
                     print(instruction)
@@ -99,3 +104,4 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
 print("Disconnected, attempting to reconnect...")
 time.sleep(5)
+
