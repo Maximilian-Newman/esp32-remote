@@ -23,7 +23,6 @@ def sign(message, msgNum):
     sha256_hash = hashlib.sha256(message.encode("utf-8"))
     return str(sha256_hash.hexdigest())
 
-
 pyautogui.FAILSAFE = False # don't crash when cursor goes in corner
 salt = generate_salt()
 rewindMode = False
@@ -44,7 +43,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             print("Support for the old protocol was dropped due to vulnerability to replay attacks")
             print()
         
-        elif protocol == "remote-v1.0":
+        elif protocol == "remote-v1.0" or protocol == "remote-v1.1":
             mLength = int(s.recv(10).decode("utf-8"))
             msg = ""
             while len(msg) < mLength:
@@ -94,6 +93,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         vx *= mouseSensitivity
                         vy *= mouseSensitivity
                         pyautogui.move(vx, -vy)
+
+                elif instruction == "scroll l":
+                    pyautogui.press("left")
+                elif instruction == "scroll r":
+                    pyautogui.press("right")
 
                 else:
                     print("unknown unstruction:")
