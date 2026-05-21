@@ -51,7 +51,7 @@ long radio_val_roll() {return pulseIn(rollRadioPin, HIGH, 30000) - rollRadioOffs
 long radio_val_yaw() {return pulseIn(yawRadioPin, HIGH, 30000) - yawRadioOffset;}
 long radio_val_thrust() {
   int val = pulseIn(thrustRadioPin, HIGH, 30000);
-  if (val < thrustRadioOffset) {thrustRadioOffset = val;}
+  if (val < thrustRadioOffset and val > 400) {thrustRadioOffset = val;}
   return val - thrustRadioOffset;
 }
 
@@ -264,11 +264,11 @@ void loop() {
 
     int scroll = radio_val_yaw();
 
-    if (scroll > 150) {
+    if (scroll > 170) {
       transmit("scroll r");
       delay(80000 / scroll);
     }
-    else if (scroll < -150) {
+    else if (scroll < -170) {
       transmit("scroll l");
       delay(-80000 / scroll);
     }
